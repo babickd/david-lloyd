@@ -92,6 +92,31 @@ class DavidLloydClient:
                 logger.error(f"Error response: {e.response.text}")
             raise
 
+    def confirm_purchase(self, purchase_id: int) -> Dict[str, Any]:
+        """Confirm the purchase after holding a session."""
+        url = f"{self.base_url}/purchases/{purchase_id}/adyen-drop-in"
+        logger.info(f"Confirming purchase {purchase_id}")
+
+        data = {
+            "locale": "en-gb",
+            "revenueStream": "CLASS",
+            "promotionsHaveBeenApplied": False,
+        }
+
+        try:
+            response = requests.post(url, headers=self._get_headers(), json=data)
+            response.raise_for_status()
+            logger.info(
+                f"Successfully confirmed purchase. Status code: {response.status_code}"
+            )
+            logger.debug(f"Confirmation response: {response.json()}")
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error confirming purchase: {str(e)}")
+            if hasattr(e.response, "text"):
+                logger.error(f"Error response: {e.response.text}")
+            raise
+
 
 # Example usage:
 def main():
@@ -113,17 +138,22 @@ def main():
         club_id = 42
         purchase_id = client.get_purchase_id(club_id)
 
-        # Use the retrieved purchase ID in the hold_session call
-        response = client.hold_session(
+        # Hold the session
+        hold_response = client.hold_session(
             club_id=club_id,
-            session_id=135085521,
-            purchase_id=purchase_id,  # Using the dynamically retrieved purchase ID
+            session_id=129303885,
+            purchase_id=purchase_id,
             contact_id="Ve+lBmwwMU6FcU46j2ZEcg",
-            course_id=107479107,
+            course_id=101786949,
         )
-        logger.info("Successfully completed hold_session request")
-        logger.debug(f"Final response: {response}")
-        return response
+        logger.info("Successfully held session")
+
+        # Confirm the purchase
+        confirm_response = client.confirm_purchase(purchase_id)
+        logger.info("Successfully confirmed purchase")
+        logger.debug(f"Final confirmation response: {confirm_response}")
+
+        return confirm_response
     except Exception as e:
         logger.error(f"Error in main function: {str(e)}")
         raise

@@ -1,6 +1,7 @@
 import requests
+from datetime import datetime, timedelta
 
-from src.models.session import process_sessions
+from src.models.session import format_session, process_sessions, SessionCollection
 
 
 def get_club_timetable(club_id=42):
@@ -26,13 +27,20 @@ def main():
     # Get the timetable data
     timetable_data = get_club_timetable()
 
-    # Process the response
     if timetable_data:
-        sessions = process_sessions(timetable_data)
+        # Create SessionCollection instance directly
+        collection = SessionCollection(timetable_data)
 
-        print("Successfully retrieved timetable data")
-        # You can process the timetable_data here as needed
-        print(sessions)
+        # Calculate target date (9 days from today)
+        target_date = datetime.now() + timedelta(days=9)
+
+        # Find specific session (example with course_id=123)
+        session = collection.find_session_by_course_and_date(101786949, target_date)
+
+        if session:
+            print(f"Found session: {format_session(session)}")
+        else:
+            print("No matching session found")
     else:
         print("Failed to retrieve timetable data")
 

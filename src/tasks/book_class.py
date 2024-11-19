@@ -1,7 +1,10 @@
+from datetime import datetime, timedelta
 import requests
 import logging
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from src.core.auth import OktaAuth  # Add import at the top with other imports
+from src.models.session import SessionCollection
+from src.services.timetable_service import get_club_timetable
 
 # Add logging configuration at the top of the file
 logging.basicConfig(
@@ -117,6 +120,18 @@ class DavidLloydClient:
                 logger.error(f"Error response: {e.response.text}")
             raise
 
+    def get_session_id(self, course_id: int, club_id: int) -> int:
+        timetable_data = get_club_timetable(club_id)
+        collection = SessionCollection(timetable_data)
+
+        # Calculate target date (9 days from today)
+        target_date = datetime.now() + timedelta(days=9)
+
+        session = collection.find_session_by_course_and_date(course_id, target_date)
+        if not session:
+            raise ValueError(f"No session found for date {target_date}")
+        return session.courseInstanceId
+
 
 # Example usage:
 def main():
@@ -134,17 +149,27 @@ def main():
     client = DavidLloydClient(auth_token)
 
     try:
-        # Get purchase ID first
+        # Constants
         club_id = 42
+        course_id = 101786949  # tennis advanced
+        contact_id = "Ve+lBmwwMU6FcU46j2ZEcg"
+
+        # Get the session_id for the course 9 days ahead
+        session_id = client.get_session_id(course_id, club_id)
+        logger.info(f"Found session_id: {session_id}")
+        if not session_id:
+            raise ValueError(f"No session found for course_id {course_id}")
+
+        # Get purchase ID
         purchase_id = client.get_purchase_id(club_id)
 
         # Hold the session
         hold_response = client.hold_session(
             club_id=club_id,
-            session_id=129303885,
+            session_id=session_id,  # Using the dynamically found session_id
             purchase_id=purchase_id,
-            contact_id="Ve+lBmwwMU6FcU46j2ZEcg",
-            course_id=101786949,
+            contact_id=contact_id,
+            course_id=course_id,
         )
         logger.info("Successfully held session")
 

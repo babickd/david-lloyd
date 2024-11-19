@@ -85,6 +85,20 @@ class SessionCollection:
         """Get all non-junior sessions"""
         return self.filter(isJunior=False)
 
+    def find_session_by_course_and_date(
+        self, course_id: int, target_date: datetime
+    ) -> Optional[Session]:
+        """Find a session by course ID and specific date"""
+        target_date_str = target_date.strftime("%Y-%m-%d")
+
+        matching_sessions = [
+            session
+            for session in self.sessions
+            if session.courseId == course_id and session.date == target_date_str
+        ]
+
+        return matching_sessions[0] if matching_sessions else None
+
 
 def format_session(session: Session) -> dict:
     """Convert a session to a simplified dictionary format"""

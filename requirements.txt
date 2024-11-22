@@ -5,7 +5,9 @@
 #    pip-compile requirements.in
 #
 certifi==2024.8.30
-    # via requests
+    # via
+    #   requests
+    #   sentry-sdk
 charset-normalizer==3.3.2
     # via requests
 idna==3.9
@@ -14,5 +16,9 @@ python-dotenv==1.0.1
     # via -r requirements.in
 requests==2.32.3
     # via -r requirements.in
+sentry-sdk==2.19.0
+    # via -r requirements.in
 urllib3==2.2.3
-    # via requests
+    # via
+    #   requests
+    #   sentry-sdk

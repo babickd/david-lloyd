@@ -1,15 +1,11 @@
 from datetime import datetime, timedelta
 import requests
-import logging
 from typing import Dict, Any
 from src.core.auth import OktaAuth
 from src.services.timetable_service import get_session_by_course_and_date
+from src.core.logging_config import setup_logger
 
-
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 
 class DavidLloydClient:

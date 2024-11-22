@@ -2,11 +2,10 @@ from datetime import datetime, timedelta
 import requests
 import logging
 from typing import Dict, Any
-from src.core.auth import OktaAuth  # Add import at the top with other imports
-from src.models.session import SessionCollection
-from src.services.timetable_service import get_club_timetable
+from src.core.auth import OktaAuth
+from src.services.timetable_service import get_session_by_course_and_date
 
-# Add logging configuration at the top of the file
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -121,13 +120,10 @@ class DavidLloydClient:
             raise
 
     def get_session_id(self, course_id: int, club_id: int) -> int:
-        timetable_data = get_club_timetable(club_id)
-        collection = SessionCollection(timetable_data)
-
         # Calculate target date (9 days from today)
         target_date = datetime.now() + timedelta(days=9)
+        session = get_session_by_course_and_date(club_id, course_id, target_date)
 
-        session = collection.find_session_by_course_and_date(course_id, target_date)
         if not session:
             raise ValueError(f"No session found for date {target_date}")
         return session.courseInstanceId
@@ -136,7 +132,6 @@ class DavidLloydClient:
 # Example usage:
 def main():
     logger.info("Starting main function")
-
     # Get auth token using OktaAuth
     try:
         okta_auth = OktaAuth()
@@ -163,10 +158,9 @@ def main():
         # Get purchase ID
         purchase_id = client.get_purchase_id(club_id)
 
-        # Hold the session
-        hold_response = client.hold_session(
+        client.hold_session(
             club_id=club_id,
-            session_id=session_id,  # Using the dynamically found session_id
+            session_id=session_id,
             purchase_id=purchase_id,
             contact_id=contact_id,
             course_id=course_id,

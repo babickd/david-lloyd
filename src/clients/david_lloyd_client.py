@@ -1,15 +1,30 @@
 from datetime import datetime, timedelta
 import requests
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from src.core.logging_config import setup_logger
 from src.services.timetable_service import get_session_by_course_and_date
+from dataclasses import dataclass
+from urllib.parse import urljoin
 
 logger = setup_logger(__name__)
 
 
+@dataclass
+class BookingResponse:
+    """Data class to structure booking-related responses"""
+
+    success: bool
+    data: Dict[str, Any]
+    error_message: Optional[str] = None
+
+
 class DavidLloydClient:
-    def __init__(self, auth_token: str):
-        self.base_url = "https://mobile-app-back.davidlloyd.co.uk"
+    def __init__(
+        self,
+        auth_token: str,
+        base_url: str = "https://mobile-app-back.davidlloyd.co.uk",
+    ):
+        self.base_url = base_url
         self.auth_token = auth_token
         logger.info("Initialized DavidLloydClient")
 
@@ -28,6 +43,27 @@ class DavidLloydClient:
             "sec-fetch-dest": "empty",
         }
 
+    def _make_request(
+        self, method: str, endpoint: str, data: Dict = None
+    ) -> BookingResponse:
+        """Centralized request handling method"""
+        url = urljoin(self.base_url, endpoint)
+        logger.info(f"Making {method} request to {url}")
+        logger.debug(f"Request data: {data}")
+
+        try:
+            response = requests.request(
+                method, url, headers=self._get_headers(), json=data
+            )
+            response.raise_for_status()
+            return BookingResponse(success=True, data=response.json())
+        except requests.exceptions.RequestException as e:
+            error_msg = str(e)
+            if hasattr(e.response, "text"):
+                error_msg = f"{error_msg}: {e.response.text}"
+            logger.error(f"Request failed: {error_msg}")
+            return BookingResponse(success=False, data={}, error_message=error_msg)
+
     def hold_session(
         self,
         club_id: int,
@@ -35,59 +71,24 @@ class DavidLloydClient:
         purchase_id: int,
         contact_id: str,
         course_id: int,
-    ) -> Dict[str, Any]:
-        url = f"{self.base_url}/clubs/{club_id}/classes/sessions/{session_id}/hold"
-        logger.info(f"Making hold_session request to {url}")
-
+    ) -> BookingResponse:
+        endpoint = f"/clubs/{club_id}/classes/sessions/{session_id}/hold"
         data = {
             "purchaseId": purchase_id,
             "contactId": contact_id,
             "courseId": course_id,
         }
-        logger.debug(f"Request data: {data}")
-
-        try:
-            response = requests.post(url, headers=self._get_headers(), json=data)
-            response.raise_for_status()
-            logger.info(
-                f"Successfully held session. Status code: {response.status_code}"
-            )
-            logger.debug(f"Response data: {response.json()}")
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error holding session: {str(e)}")
-            if hasattr(e.response, "text"):
-                logger.error(f"Error response: {e.response.text}")
-            raise
+        return self._make_request("POST", endpoint, data)
 
     def get_purchase_id(self, club_id: int) -> int:
-        """Get a valid purchase ID for booking classes."""
-        url = f"{self.base_url}/purchases"
-        logger.info(f"Getting purchase ID for club {club_id}")
+        response = self._make_request("POST", "/purchases", {"siteId": club_id})
+        if not response.success:
+            raise ValueError(f"Failed to get purchase ID: {response.error_message}")
 
-        data = {"siteId": club_id}
-
-        try:
-            response = requests.post(url, headers=self._get_headers(), json=data)
-            response.raise_for_status()
-            response_data = response.json()
-
-            logger.info("Successfully retrieved purchase data")
-            logger.debug(f"Purchase response: {response_data}")
-
-            # Extract purchaseId from the response
-            if purchase_id := response_data.get("purchaseId"):
-                logger.info(f"Found purchase ID: {purchase_id}")
-                return purchase_id
-            else:
-                logger.error("No purchaseId found in response")
-                raise ValueError("No purchaseId found in response")
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error getting purchase ID: {str(e)}")
-            if hasattr(e.response, "text"):
-                logger.error(f"Error response: {e.response.text}")
-            raise
+        purchase_id = response.data.get("purchaseId")
+        if not purchase_id:
+            raise ValueError("No purchaseId found in response")
+        return purchase_id
 
     def confirm_purchase(self, purchase_id: int) -> Dict[str, Any]:
         """Confirm the purchase after holding a session."""
